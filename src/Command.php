@@ -45,17 +45,31 @@ class Command extends SymfonyCommand
         // Get data
         $data = $this->fetch($subreddit, $url);
 
+        // Create and set table instance
         $table = new Table($output);
         $table->setHeaders(['Date', 'Title', 'URL', 'Excerpt']);
         $separator = new TableSeparator();
 
+        // Post logic
+        $dataSize = count($data->data->children);
         $first = 0;
+        $counter = 0;
         foreach ($data->data->children as $item) {
             $title = $item->data->title;
             $text = $item->data->selftext;
             $postUrl = $item->data->url; $postUrl = substr($postUrl, 0, 40);
             $date = date('Y-m-d H:i:s', $item->data->created_utc);
             $excerpt = '';
+
+            // Skip post if is not reddit.com
+            if (stripos($postUrl, 'reddit.com') !== false) {}
+            else { 
+                $counter++;
+                if ($counter == $dataSize-1) {
+                    $this->termNotFound();
+                }
+                continue;
+            }
 
             // Search across both $title and $text
             if (stripos($title, $term) !== false) {
@@ -71,6 +85,12 @@ class Command extends SymfonyCommand
                     $excerpt = $this->genExcerpt($text, $term);
                 }
                 else {
+                    // If no post matches
+                    $counter++;
+                    if ($counter == $dataSize-1) {
+                        $this->termNotFound();
+                    }
+
                     continue;
                 }
             }
@@ -179,4 +199,15 @@ class Command extends SymfonyCommand
     {   
         exit('Subreddit Not Found!');
     }
+    /* 
+        Exits the program if the term does not match all posts
+    */
+    private function termNotFound()
+    {
+        exit('No posts found with the search term supplied. :(');
+    }
 }
+
+// Todo:
+    // post not found
+    // allow only reddit url
