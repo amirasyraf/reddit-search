@@ -37,17 +37,12 @@ class Command extends SymfonyCommand
         $subreddit = $io->ask('Please enter the name of the subreddit (default: webdev): ', 'webdev');
         $term = $io->ask('Please enter a search term (default: php): ', 'php');
         $term = strtolower($term);
-
-        $io->newLine();
-        $io->text('Subreddit: ' . $subreddit);
-        $io->text('Search term: ' . $term);
-        $io->newLine();
-
         $url = 'https://www.reddit.com/r/' . $subreddit . '/new/.json?limit=100';
 
         $io->text('Searching for: ' . $term . ' at ' . $url . '...');
         $io->newLine();
 
+        // Get data
         $data = $this->fetch($subreddit, $url);
 
         $table = new Table($output);
@@ -58,9 +53,11 @@ class Command extends SymfonyCommand
         foreach ($data->data->children as $item) {
             $title = $item->data->title;
             $text = $item->data->selftext;
-            $postUrl = $item->data->url;
+            $postUrl = $item->data->url; $postUrl = substr($postUrl, 0, 40);
             $date = date('Y-m-d H:i:s', $item->data->created_utc);
+            $excerpt = '';
 
+            // Search across both $title and $text
             if (stripos($title, $term) !== false) {
                 $excerpt = '';
 
@@ -68,10 +65,20 @@ class Command extends SymfonyCommand
                     $excerpt = $this->genExcerpt($text, $term);
                 }
             }
+            else {
+
+                if (stripos($text, $term) !== false) {
+                    $excerpt = $this->genExcerpt($text, $term);
+                }
+                else {
+                    continue;
+                }
+            }
 
             if (strlen($title) > 30)
                 $title = substr($title,0,30).'...';
 
+            // The logic below needed to solve double border issue at the bottom of the table
             $first++;
             if ($first === 1) {
                 $table->addRow([$date, $title, $postUrl, $excerpt]);
@@ -81,9 +88,13 @@ class Command extends SymfonyCommand
                 $table->addRow([$date, $title, $postUrl, $excerpt]);
             }
         }
+
         $table->render();
     }
 
+    /*
+        Fetch raw JSON data from Reddit's API
+    */
     private function fetch($subreddit, $url)
     {
         $client = new Client([
@@ -102,6 +113,18 @@ class Command extends SymfonyCommand
         return $response;
     }
 
+    /* 
+        Function to truncate text to:
+
+            ... + 20 + term + 20 + ...      or
+
+            ... + 20 + term + endOfText     or
+
+            startOfText + term + 20 + ...   or
+
+            startOfText + term + endOfText
+
+    */
     private function genExcerpt($text, $term) {
         $excerpt = '';
         $textLength = strlen($text);
@@ -117,7 +140,8 @@ class Command extends SymfonyCommand
 
         else if ( ($termPosition < 20) && ( ($textLength - $termPosition - $termLength) > 20) ) {
             $start = 0;
-            $length = $termPosition + ($termLength + 20); // 20 added with $termLength so that the search term is not included in '20 after'
+            // 20 added with $termLength so that the search term is not included in '20 after'
+            $length = $termPosition + ($termLength + 20);
             $truncated = substr($text, $start, $length );
             $excerpt = $truncated . '...';
         }
@@ -135,6 +159,9 @@ class Command extends SymfonyCommand
         return $this->highlight($excerpt, $term);
     }
 
+    /* 
+        Find all instances of the search term, and surround them in color tag
+    */
     private function highlight($excerpt, $term) 
     {
         $text = preg_filter('/' . preg_quote($term, '/') . '/i', '<red>$0</>', $excerpt);
@@ -145,7 +172,9 @@ class Command extends SymfonyCommand
 
         return $excerpt;
     }
-
+    /* 
+        Exits the program if subreddit supplied does not exist
+    */
     private function subRedditNotFound()
     {   
         exit('Subreddit Not Found!');
