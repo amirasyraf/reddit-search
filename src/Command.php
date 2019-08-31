@@ -57,7 +57,7 @@ class Command extends SymfonyCommand
         foreach ($data->data->children as $item) {
             $title = $item->data->title;
             $text = $item->data->selftext;
-            $postUrl = $item->data->url; $postUrl = substr($postUrl, 0, 40);
+            $postUrl = $item->data->url; $postUrl = substr($postUrl, 0, 40) . '...';
             $date = date('Y-m-d H:i:s', $item->data->created_utc);
             $excerpt = '';
 
