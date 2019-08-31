@@ -33,4 +33,20 @@ class Command extends SymfonyCommand
         $io->text('Search term: ' . $query);
         $io->newLine();
     }
+
+    private function fetch($subreddit)
+    {
+        $client = new Client([
+            'base_uri' => 'https://www.reddit.com',
+            'headers' => ['User-Agent' => 'reddtsearch/1.0'],
+            'verify' => false
+        ]);
+
+        // $response = $client->request("GET", '/r/' . $subreddit . '/search.json', ['query' => 'q=' . $query . '&sort=new' . '&restrict_sr=1&limit=10']);
+        $response = $client->request("GET", 'https://www.reddit.com/r/redditdev/new/.json?limit=100');
+
+        $body = json_decode($response->getBody(true));
+
+        return $body;
+    }
 }
