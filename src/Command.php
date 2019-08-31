@@ -9,6 +9,9 @@ use Symfony\Component\Console\Question\Question;
 use Symfony\Component\Console\Formatter\OutputFormatterStyle;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Psr7\Request;
+
 class Command extends SymfonyCommand
 {
     
@@ -48,5 +51,59 @@ class Command extends SymfonyCommand
         $body = json_decode($response->getBody(true));
 
         return $body;
+    }
+    
+    private function genExcerpt($text, $term) {
+        $excerpt = '';
+        $textLength = strlen($text);
+        $termLength = strlen($term);
+        $termPosition = strpos($text, $term);
+
+        if (!strstr($text, $term))
+            return '';
+
+        if ( ($termPosition > 20) && ( ($textLength - $termPosition - $termLength) > 20) ) {
+            $start = $termPosition - 20;
+            $length = 40 + $termLength;
+            $truncated = substr($text, $start, $length );
+            $excerpt = '...' . $truncated . '...';
+        }
+
+        else if ( ($termPosition < 20) && ( ($textLength - $termPosition - $termLength) > 20) ) {
+            $start = 0;
+            $length = $termPosition + ($termLength + 20); // 20 added with $termLength so that the search term is not included in '20 after'
+            $truncated = substr($text, $start, $length );
+            $excerpt = $truncated . '...';
+        }
+
+        else if ( ($termPosition > 20) && ( ($textLength - $termPosition - $termLength) < 20 ) ) {
+            $start = $termPosition - 20;
+            $length = 40 + $termLength;
+            $truncated = substr($text, $start, $length );
+            $excerpt = '...' . $truncated;
+        }
+
+        else if ( $textLength < (40 + $termLength) )
+            $excerpt = $text;
+
+        return $this->highlight($excerpt, $term);
+    }
+
+    private function highlight($excerpt, $term) 
+    {
+        $text = preg_filter('/' . preg_quote($term, '/') . '/i', '<red>$0</>', $excerpt);
+        
+        if (!empty($text)) {
+            $excerpt = $text;
+        }
+
+        return $excerpt;
+    }
+
+    private function termNotFound()
+    {
+        $io->text('Term not found!');
+        $io->newLine(2);
+        exit();
     }
 }
