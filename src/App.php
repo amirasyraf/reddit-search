@@ -18,6 +18,6 @@ class App extends Command
 
     public function execute(InputInterface $input, OutputInterface $output)
     {
-        $this -> search($input, $output);
+        $this->search($input, $output);
     }
 }
