@@ -152,3 +152,4 @@ class Command extends SymfonyCommand
     {   
         exit('Subreddit Not Found!');
     }
+}
