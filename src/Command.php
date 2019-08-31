@@ -12,6 +12,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Request;
 
+use Symfony\Component\Console\Helper\Table;
+use Symfony\Component\Console\Helper\TableSeparator;
+
 class Command extends SymfonyCommand
 {
     
@@ -19,40 +22,85 @@ class Command extends SymfonyCommand
     {
         parent::__construct();
     }
-
     protected function search(InputInterface $input, OutputInterface $output)
     {
         $io = new SymfonyStyle($input, $output);
         $outputStyle = new OutputFormatterStyle('red');
         $io->getFormatter()->setStyle('red', $outputStyle);
 
-        $io->title('<red>Reddit Search</>');
+        $io->newLine(2);
+        $io->writeln([
+            '<red>Reddit Search v0.1.0</>',
+            '<red>====================</>'
+        ]);
 
         $subreddit = $io->ask('Please enter the name of the subreddit (default: webdev): ', 'webdev');
-        $query = $io->ask('Please enter a search term (default: php): ', 'php');
+        $term = $io->ask('Please enter a search term (default: php): ', 'php');
 
         $io->newLine();
         $io->text('Subreddit: ' . $subreddit);
-        $io->text('Search term: ' . $query);
+        $io->text('Search term: ' . $term);
         $io->newLine();
+
+        $url = 'https://www.reddit.com/r/' . $subreddit . '/new/.json?limit=100';
+
+        $io->text('Searching for: ' . $term . ' at ' . $url . '...');
+        $io->newLine();
+
+        $data = $this->fetch($subreddit, $url);
+
+        $table = new Table($output);
+        $table->setHeaders(['Date', 'Title', 'URL', 'Excerpt']);
+        $separator = new TableSeparator();
+
+        $first = 0;
+        foreach ($data->data->children as $item) {
+            $title = $item->data->title;
+            $text = $item->data->selftext;
+            $postUrl = $item->data->url;
+            $date = date('Y-m-d H:i:s', $item->data->created_utc);
+
+            if (empty($text))
+                continue;
+
+            $excerpt = $this->genExcerpt($text, $term);
+
+            if (empty($excerpt))
+                continue;
+
+            if (strlen($title) > 30)
+                $title = substr($title,0,30).'...';
+
+            $first++;
+            if ($first === 1) {
+                $table->addRow([$date, $title, $postUrl, $excerpt]);
+            }
+            else {
+                $table->addRow($separator);
+                $table->addRow([$date, $title, $postUrl, $excerpt]);
+            }
+        }
+        $table->render();
     }
 
-    private function fetch($subreddit)
+    private function fetch($subreddit, $url)
     {
         $client = new Client([
-            'base_uri' => 'https://www.reddit.com',
-            'headers' => ['User-Agent' => 'reddtsearch/1.0'],
+            'headers' => ['User-Agent' => 'redditsearch/1.0'],
             'verify' => false
         ]);
 
-        // $response = $client->request("GET", '/r/' . $subreddit . '/search.json', ['query' => 'q=' . $query . '&sort=new' . '&restrict_sr=1&limit=10']);
-        $response = $client->request("GET", 'https://www.reddit.com/r/redditdev/new/.json?limit=100');
+        // $response = $client->request("GET", '/r/' . $subreddit . '/search.json', ['term' => 'q=' . $term . '&sort=new' . '&restrict_sr=1&limit=10']);
+        $response = $client->request("GET", 'https://www.reddit.com/r/' . $subreddit . '/new/.json?limit=100');
 
-        $body = json_decode($response->getBody(true));
+        $response = json_decode($response->getBody(true));
 
-        return $body;
+        if (empty($response->data->children))
+            $this->subRedditNotFound();
+
+        return $response;
     }
-    
+
     private function genExcerpt($text, $term) {
         $excerpt = '';
         $textLength = strlen($text);
@@ -100,10 +148,7 @@ class Command extends SymfonyCommand
         return $excerpt;
     }
 
-    private function termNotFound()
-    {
-        $io->text('Term not found!');
-        $io->newLine(2);
-        exit();
+    private function subRedditNotFound()
+    {   
+        exit('Subreddit Not Found!');
     }
-}
