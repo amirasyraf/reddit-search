@@ -36,6 +36,7 @@ class Command extends SymfonyCommand
 
         $subreddit = $io->ask('Please enter the name of the subreddit (default: webdev): ', 'webdev');
         $term = $io->ask('Please enter a search term (default: php): ', 'php');
+        $term = strtolower($term);
 
         $io->newLine();
         $io->text('Subreddit: ' . $subreddit);
@@ -60,13 +61,13 @@ class Command extends SymfonyCommand
             $postUrl = $item->data->url;
             $date = date('Y-m-d H:i:s', $item->data->created_utc);
 
-            if (empty($text))
-                continue;
+            if (stripos($title, $term) !== false) {
+                $excerpt = '';
 
-            $excerpt = $this->genExcerpt($text, $term);
-
-            if (empty($excerpt))
-                continue;
+                if (stripos($text, $term) !== false) {
+                    $excerpt = $this->genExcerpt($text, $term);
+                }
+            }
 
             if (strlen($title) > 30)
                 $title = substr($title,0,30).'...';
@@ -91,7 +92,7 @@ class Command extends SymfonyCommand
         ]);
 
         // $response = $client->request("GET", '/r/' . $subreddit . '/search.json', ['term' => 'q=' . $term . '&sort=new' . '&restrict_sr=1&limit=10']);
-        $response = $client->request("GET", 'https://www.reddit.com/r/' . $subreddit . '/new/.json?limit=100');
+        $response = $client->request("GET", $url);
 
         $response = json_decode($response->getBody(true));
 
@@ -105,10 +106,7 @@ class Command extends SymfonyCommand
         $excerpt = '';
         $textLength = strlen($text);
         $termLength = strlen($term);
-        $termPosition = strpos($text, $term);
-
-        if (!strstr($text, $term))
-            return '';
+        $termPosition = stripos($text, $term);
 
         if ( ($termPosition > 20) && ( ($textLength - $termPosition - $termLength) > 20) ) {
             $start = $termPosition - 20;
